@@ -24,6 +24,18 @@ void fail(const char* str) {
   exit(1);
 }
 
+char* parse_url(char[] buf) {
+
+}
+
+char* parse_host(char* url) {
+
+}
+
+char* parse_path(char* url) {
+
+}
+
 void* serve_client(void* v) {
   int sock = *(int*) v;
   free(v);
@@ -35,13 +47,20 @@ void* serve_client(void* v) {
   }
 
   char buf[BUFSIZE];
-  char* four04 = "HTTP/1.1 404 Not Found\nContent-Length: 228\nContent-Type: text/html\n\n!doctype html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><img src='http://www.climateaccess.org/sites/default/files/Obi%20wan.jpeg'></img><p>These aren't the bytes you're looking for.</p></body></html>";
+  char* four04 = "HTTP/1.1 404 Not Found\nContent-Length: 219\nContent-Type: text/html\n\n<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><img src='http://www.climateaccess.org/sites/default/files/Obi%20wan.jpeg'></img><p>These aren't the bytes you're looking for.</p></body></html>";
 
   while(fgets(buf, BUFSIZE, myclient) != NULL) {
     fflush(myclient);  // does this go here?
     fputs(buf, stdout);
 
-    // this is where we'll have to talk to the server ourselves
+    char* url  = parse_url(buf);
+    char* host = parse_host(url);
+    char* path = parse_path(url);
+
+    // open socket
+    // create and send request
+    // get response, write out
+    // on failure, write 404
 
     int n = write(sock, four04, strlen(four04));
     if (n < 0) {
