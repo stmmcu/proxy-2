@@ -24,7 +24,7 @@ void fail(const char* str) {
   exit(1);
 }
 
-char* parse_url(char[] buf) {
+char* parse_url(char buf[]) {
 
 }
 
@@ -45,27 +45,55 @@ void* serve_client(void* v) {
     perror("fdopen");
     pthread_exit(0);
   }
+  setlinebuf(myclient);
 
   char buf[BUFSIZE];
   char* four04 = "HTTP/1.1 404 Not Found\nContent-Length: 219\nContent-Type: text/html\n\n<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><img src='http://www.climateaccess.org/sites/default/files/Obi%20wan.jpeg'></img><p>These aren't the bytes you're looking for.</p></body></html>";
 
   while(fgets(buf, BUFSIZE, myclient) != NULL) {
-    fflush(myclient);  // does this go here?
     fputs(buf, stdout);
 
     char* url  = parse_url(buf);
     char* host = parse_host(url);
     char* path = parse_path(url);
 
-    // open socket
-    // create and send request
-    // get response, write out
-    // on failure, write 404
+    inf err;
+    struct addrinfo* host;
+    err = getaddrinfo(host, "80", NULL, &host);
+    if (err) {
+      fprintf(stderr, "%s : %s\n", host, gai_strerror(err));
+      exit(err);
+    }
 
-    int n = write(sock, four04, strlen(four04));
-    if (n < 0) {
-      perror("write");
-      exit(1);
+    int sock2 = socket(host->ai_family, SOCK_STREAM, 0);
+    if (sock2 < 0  ||  connect(sock2, host->ai_addr, host->ai_addrlen)) {
+
+      int n = write(sock, four04, strlen(four04));
+      if (n < 0) {
+	perror("write");
+	exit(1);
+      }
+
+    } else {
+      
+      freeaddrinfo(host);
+      
+      FILE* serv_stream = fdopen(sock2, "w");
+      if (serv_stream == NULL) {
+	fail("fdopen");
+      }
+      setlinebuf(serv_stream);
+      
+      // TODO: change to write and read to socket instead of fgets and fputs
+      char buf2[BUFSIZE];
+      while (fgets(buf, BUFSIZE, stdin) != NULL) {
+	if (fputs(buf, serv_stream) == EOF) {
+	  break;
+	}
+      }
+      
+      fclose(serv_stream);
+      
     }
   }
 
