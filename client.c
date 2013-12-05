@@ -54,14 +54,14 @@ void* serve_client(void* v) {
     fputs(buf, stdout);
 
     char* url  = parse_url(buf);
-    char* host = parse_host(url);
+    char* host2 = parse_host(url);
     char* path = parse_path(url);
 
-    inf err;
+    int err;
     struct addrinfo* host;
-    err = getaddrinfo(host, "80", NULL, &host);
+    err = getaddrinfo(host2, "80", NULL, &host);
     if (err) {
-      fprintf(stderr, "%s : %s\n", host, gai_strerror(err));
+      fprintf(stderr, "%s : %s\n", host2, gai_strerror(err));
       exit(err);
     }
 
@@ -83,18 +83,24 @@ void* serve_client(void* v) {
 	fail("fdopen");
       }
       setlinebuf(serv_stream);
-      
-      // TODO: change to write and read to socket instead of fgets and fputs
+
+      // TODO: write header
+
       char buf2[BUFSIZE];
-      while (fgets(buf, BUFSIZE, stdin) != NULL) {
-	if (fputs(buf, serv_stream) == EOF) {
+      while (read(sock2, buf2, BUFSIZE) != NULL) {
+	if (write(sock, buf2, sizeof(buf2)) == EOF) {
 	  break;
 	}
       }
       
       fclose(serv_stream);
-      
+  
     }
+
+    free(url);
+    free(host2);
+    free(path);
+
   }
 
   printf("Connection closed on fdesc %d\n", sock);
