@@ -100,13 +100,27 @@ void* serve_client(void* v) {
   err = getaddrinfo(host2, "80", NULL, &host);
   if (err) {
     fprintf(stderr, "%s : %s\n", host2, gai_strerror(err));
-    exit(err);
-  }
+    exit(err); // TODO: don't exit here, fail with a 404
+  } 
 
   printf("a1\n");
   
+  // TODO: error checking!
   int sock2 = socket(host->ai_family, SOCK_STREAM, 0);
-  if (sock2 < 0  ||  connect(sock2, host->ai_addr, host->ai_addrlen)) {
+  /*
+  if (bind(sock2, host->ai_addr, host->ai_addrlen)) {
+    fail("bind");
+  }
+  
+  if (listen(sock2, 5)) {
+    fail("listen");
+  }  
+  int sfd = accept(sock2, NULL, NULL);
+  if (sfd < 0) {
+    fail("socket");
+  }
+  */
+  if (connect(sock2, host->ai_addr, host->ai_addrlen)) {
   
     printf("1\n");
   
@@ -117,6 +131,12 @@ void* serve_client(void* v) {
     }
     
   } else {
+
+    // TODO: error checking
+    /*
+    bind(sock2, host->ai_addr, host->ai_addrlen);
+    listen(sock2, 5);
+    */
 
     printf("2\n");
     
@@ -129,7 +149,8 @@ void* serve_client(void* v) {
     setlinebuf(serv_stream_rd);
     
     // write header
-    int n = write(sock2, req, strlen(req));
+    printf("req is %s\n", req);
+    int n = write(sfd, req, strlen(req));
     if (n < 0) {
       perror("write");
       exit(1);
@@ -143,6 +164,7 @@ void* serve_client(void* v) {
     char* buf2 = (char*) malloc(BUFSIZE*sizeof(char));
     memset(buf2, 0, sizeof(buf2));
     printf("4\n");
+    /*
     while (read(sock2, buf2, strlen(buf2)) >= 0) {
       if (write(sock, buf2, strlen(buf2)) < 0) {
 	printf("6\n");
@@ -150,6 +172,13 @@ void* serve_client(void* v) {
       }
       printf(buf2);
     }
+    */
+    // TODO: error checking!
+    int i = 0;
+    //ioctl(sock2, FIONBIO, &i);
+    read(sfd, buf2, strlen(buf2));
+    write(sfd, buf2, strlen(buf2));
+    printf(buf2);
     free(buf2);
     
     /*
