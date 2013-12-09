@@ -17,7 +17,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#define BUFSIZE 4096  // ALL of the memory
+#define BUFSIZE 4096
 
 // TODO: SIGPIPE handler
 
@@ -28,7 +28,7 @@ void fail(const char* str) {
 
 // return domain for opening socket
 char* parse_host(char* buffer) {
-  char* ret = (char*) malloc(BUFSIZE*sizeof(char)); // for testing
+  char* ret = (char*) malloc(BUFSIZE*sizeof(char));
   strtok(buffer, "/");
   strcpy(ret, strtok(NULL, "/"));
   return ret;
@@ -36,23 +36,9 @@ char* parse_host(char* buffer) {
 
 // make sure connection is closed
 char* gen_req(char* buffer) {
-  char* ret  = (char*) malloc(BUFSIZE*sizeof(char)); // for testing
-  /*
-  char* pars = (char*) malloc(BUFSIZE*sizeof(char));
-  pars = strtok(buffer, " \n");
-  while (pars != NULL) {
-    strcat(ret, pars);
-    if (strcmp(pars, "Connection:")==0 || strcmp(pars, "Proxy-Connection:")==0) {
-      pars = strtok(NULL, " \n");
-      strcat(ret, "close\r");
-    }
-    pars = strtok(NULL, " \n");
-    strcat(ret, " ");
-  }
-  free(pars);
-  */
+  // TODO: fix up request
+  char* ret  = (char*) malloc(BUFSIZE*sizeof(char));
   strcpy(ret, buffer);
-  //strcpy(ret, "GET /kjdf/ HTTP/1.1\r\nHost: nathanbossart.com\r\n\r\n");
   return ret;
 }
 
@@ -81,18 +67,10 @@ void* serve_client(void* v) {
     }
   }
   
-  fprintf(stderr, buffer);
-  
   char* req = (char*) malloc(BUFSIZE*sizeof(char));
   strcpy(req, buffer);
   char* host2 = parse_host(buffer);
   //char* req   = gen_req(buffer);
-  fprintf(stderr, "---REQ\n");
-  fprintf(stderr, req);
-  fprintf(stderr, "\n--ENDREQ\n");
-  fprintf(stderr, "---HOST\n");
-  fprintf(stderr, host2);
-  fprintf(stderr, "\n---ENDREQ\n");
   memset(buffer, 0, sizeof(buffer));
 
   int err;
@@ -103,27 +81,10 @@ void* serve_client(void* v) {
     exit(err); // TODO: don't exit here, fail with a 404
   } 
 
-  printf("a1\n");
-  
   // TODO: error checking!
   int sock2 = socket(host->ai_family, SOCK_STREAM, 0);
-  /*
-  if (bind(sock2, host->ai_addr, host->ai_addrlen)) {
-    fail("bind");
-  }
-  
-  if (listen(sock2, 5)) {
-    fail("listen");
-  }  
-  int sfd = accept(sock2, NULL, NULL);
-  if (sfd < 0) {
-    fail("socket");
-  }
-  */
+
   if (connect(sock2, host->ai_addr, host->ai_addrlen)) {
-  
-    printf("1\n");
-  
     int n = write(sock, four04, strlen(four04));
     if (n < 0) {
       perror("write");
@@ -132,14 +93,6 @@ void* serve_client(void* v) {
     
   } else {
 
-    // TODO: error checking
-    /*
-    bind(sock2, host->ai_addr, host->ai_addrlen);
-    listen(sock2, 5);
-    */
-
-    printf("2\n");
-    
     FILE* serv_stream    = fdopen(sock2, "w");
     FILE* serv_stream_rd = fdopen(sock2, "r");
     if (serv_stream == NULL || serv_stream_rd==NULL) {
@@ -155,45 +108,17 @@ void* serve_client(void* v) {
       perror("write");
       exit(1);
     }
-    //fputs(req, serv_stream);
 
-    printf("3\n");
-
-    // TODO: this doesn't work!
-    
     char* buf2 = (char*) malloc(BUFSIZE*sizeof(char));
     memset(buf2, 0, sizeof(buf2));
     printf("4\n");
-    /*
-    while (read(sock2, buf2, strlen(buf2)) >= 0) {
-      if (write(sock, buf2, strlen(buf2)) < 0) {
-	printf("6\n");
-	break;
-      }
-      printf(buf2);
-    }
-    */
+
     // TODO: error checking!
     int i = 0;
-    //ioctl(sock2, FIONBIO, &i);
     read(sfd, buf2, strlen(buf2));
     write(sfd, buf2, strlen(buf2));
     printf(buf2);
     free(buf2);
-    
-    /*
-    char buf2[BUFSIZE];
-    memset(buf2, 0, sizeof(buf2));
-    while (fgets(buf2, BUFSIZE, serv_stream_rd) != NULL) {
-
-      printf("4\n");
-
-      if (fputs(buf2, myclient_wr) == EOF) {
-        break;
-      }
-    }
-    */
-    
     
     fclose(serv_stream);
     fclose(serv_stream_rd);

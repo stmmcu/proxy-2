@@ -1,2 +1,2 @@
-client: client.c
-	$(CXX) $(CXXFLAGS) client.c -o client -lpthread -g
+proxy: proxy.c
+	$(CXX) $(CXXFLAGS) proxy.c -o proxy -lpthread
