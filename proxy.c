@@ -28,14 +28,14 @@ void fail(const char* str) {
 
 // return domain for opening socket
 char* parse_host(char* buffer) {
-  char* ret = (char*) malloc(BUFSIZE*sizeof(char));
-  ret = strtok(buffer, " \r");
+  char* ret;
+  ret = strtok(buffer, " \r\n");
   while (ret != NULL) {
-    if (strcmp(ret, "\nHost:")==0) {
-      ret = strtok(NULL, " \r");
+    if (strcmp(ret, "Host:")==0) {
+      ret = strtok(NULL, " \r\n");
       return ret;
     }
-    ret = strtok(NULL, " \r");
+    ret = strtok(NULL, " \r\n");
   }
   return NULL;
 }
@@ -89,6 +89,10 @@ void* serve_client(void* v) {
 
   // TODO: error checking!
   int sock2 = socket(host->ai_family, SOCK_STREAM, 0);
+  if (sock2 < 0) {
+    perror("socket");
+    pthread_exit(0);
+  }
 
   if (connect(sock2, host->ai_addr, host->ai_addrlen)) {
     int n = write(sock, four04, strlen(four04));
@@ -100,24 +104,21 @@ void* serve_client(void* v) {
   } else {
 
     // write header
-    printf("req is %s\n", req);
     FILE* sfd = fdopen(sock2, "w");
     if (sfd == NULL) {
       perror("fdopen");
       pthread_exit(0);
     }
     setlinebuf(sfd);
+    printf("---\n%s---\n", req);
     fputs(req, sfd);
-    fflush(sfd);
     fclose(sfd);
-
-    
 
     // TODO: error checking
     char buf2[BUFSIZE];
     int i = 0;
     i = read(sock2, buf2, BUFSIZE);
-    while (i > 0 ); {
+    while (i > 0 ) {
       int k = write(sock, buf2, i);
       if (k < 0) {
 	perror("write");
@@ -125,10 +126,13 @@ void* serve_client(void* v) {
       }
       i = read(sock2, buf2, BUFSIZE);
     }
+    if (i < 0) {
+      perror("read");
+      pthread_exit(0);
+    }
   }
 
   freeaddrinfo(host);
-  free(host2);
   free(req);
 
   printf("Connection closed on fdesc %d\n", sock);
