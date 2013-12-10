@@ -29,9 +29,15 @@ void fail(const char* str) {
 // return domain for opening socket
 char* parse_host(char* buffer) {
   char* ret = (char*) malloc(BUFSIZE*sizeof(char));
-  strtok(buffer, "/");
-  strcpy(ret, strtok(NULL, "/"));
-  return ret;
+  ret = strtok(buffer, " \r");
+  while (ret != NULL) {
+    if (strcmp(ret, "\nHost:")==0) {
+      ret = strtok(NULL, " \r");
+      return ret;
+    }
+    ret = strtok(NULL, " \r");
+  }
+  return NULL;
 }
 
 // make sure connection is closed
@@ -70,6 +76,7 @@ void* serve_client(void* v) {
   char* req = (char*) malloc(BUFSIZE*sizeof(char));
   strcpy(req, buffer);
   char* host2 = parse_host(buffer);
+  printf("Host is %s\n", host2);
   //char* req   = gen_req(buffer);
 
   int err;
@@ -77,7 +84,7 @@ void* serve_client(void* v) {
   err = getaddrinfo(host2, "80", NULL, &host);
   if (err) {
     fprintf(stderr, "%s : %s\n", host2, gai_strerror(err));
-    exit(err); // TODO: don't exit here, fail with a 404
+    pthread_exit(0); // TODO: don't exit here, fail with a 404
   } 
 
   // TODO: error checking!
@@ -87,28 +94,34 @@ void* serve_client(void* v) {
     int n = write(sock, four04, strlen(four04));
     if (n < 0) {
       perror("write");
-      exit(1);
+      pthread_exit(0);
     }
     
   } else {
 
     // write header
     printf("req is %s\n", req);
-    int n = write(sock2, req, strlen(req));
-    if (n < 0) {
-      perror("write");
-      exit(1);
+    FILE* sfd = fdopen(sock2, "w");
+    if (sfd == NULL) {
+      perror("fdopen");
+      pthread_exit(0);
     }
+    setlinebuf(sfd);
+    fputs(req, sfd);
+    fflush(sfd);
+    fclose(sfd);
+
+    
 
     // TODO: error checking
     char buf2[BUFSIZE];
     int i = 0;
     i = read(sock2, buf2, BUFSIZE);
-    while (i != EOF); {
+    while (i > 0 ); {
       int k = write(sock, buf2, i);
       if (k < 0) {
 	perror("write");
-	exit(1);
+	pthread_exit(0);
       }
       i = read(sock2, buf2, BUFSIZE);
     }
