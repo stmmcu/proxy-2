@@ -16,10 +16,14 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <string.h>
+#include <signal.h>
 
 #define BUFSIZE 4096
 
-// TODO: SIGPIPE handler
+// handle broken pipes
+void broken_pipe_handler(int signum) {
+  // this space intentionally left blank
+}
 
 void fail(const char* str) {
   perror(str);
@@ -27,22 +31,22 @@ void fail(const char* str) {
 }
 
 // return domain for opening socket
-char* parse_host(char* buffer) {
+char* parse_host(char* buffer, char** saveptr) {
   char* ret;
-  ret = strtok(buffer, " \r\n");
+  ret = strtok_r(buffer, " \r\n", saveptr);
   while (ret != NULL) {
     if (strcmp(ret, "Host:")==0) {
-      ret = strtok(NULL, " \r\n");
+      ret = strtok_r(NULL, " \r\n", saveptr);
       return ret;
     }
-    ret = strtok(NULL, " \r\n");
+    ret = strtok_r(NULL, " \r\n", saveptr);
   }
   return NULL;
 }
 
 // make sure connection is closed
 char* gen_req(char* buffer) {
-  // TODO: fix up request
+  // TODO: fix
   char* ret  = (char*) malloc(BUFSIZE*sizeof(char));
   strcpy(ret, buffer);
   return ret;
@@ -67,7 +71,6 @@ void* serve_client(void* v) {
   
   while (fgets(buf, BUFSIZE, myclient) != NULL) {
     strcat(buffer, buf);
-    fputs(buffer, stdout);
     if (strlen(buf)<3) {
       break;
     }
@@ -75,8 +78,11 @@ void* serve_client(void* v) {
   
   char* req = (char*) malloc(BUFSIZE*sizeof(char));
   strcpy(req, buffer);
-  char* host2 = parse_host(buffer);
-  printf("Host is %s\n", host2);
+  char* saveptr;
+  char* host2 = parse_host(buffer, &saveptr);
+  if (host2 == NULL) {
+    pthread_exit(0);
+  }
   //char* req   = gen_req(buffer);
 
   int err;
@@ -84,10 +90,20 @@ void* serve_client(void* v) {
   err = getaddrinfo(host2, "80", NULL, &host);
   if (err) {
     fprintf(stderr, "%s : %s\n", host2, gai_strerror(err));
-    pthread_exit(0); // TODO: don't exit here, fail with a 404
+    int l = write(sock, four04, strlen(four04));
+    if (l < 0) {
+      perror("write");
+      pthread_exit(0);
+    }
+    freeaddrinfo(host);
+    free(req);
+    printf("\e[1;34mConnection closed on fdesc %d\n\e[0m", sock);
+    close(sock);
+    fclose(myclient);
+    fclose(myclient_wr);
+    pthread_exit(0);
   } 
 
-  // TODO: error checking!
   int sock2 = socket(host->ai_family, SOCK_STREAM, 0);
   if (sock2 < 0) {
     perror("socket");
@@ -100,7 +116,13 @@ void* serve_client(void* v) {
       perror("write");
       pthread_exit(0);
     }
-    
+    freeaddrinfo(host);
+    free(req);
+    printf("\e[1;34mConnection closed on fdesc %d\n\e[0m", sock);
+    close(sock);
+    fclose(myclient);
+    fclose(myclient_wr);
+    pthread_exit(0);
   } else {
 
     // write header
@@ -112,9 +134,7 @@ void* serve_client(void* v) {
     setlinebuf(sfd);
     printf("---\n%s---\n", req);
     fputs(req, sfd);
-    fclose(sfd);
 
-    // TODO: error checking
     char buf2[BUFSIZE];
     int i = 0;
     i = read(sock2, buf2, BUFSIZE);
@@ -130,19 +150,22 @@ void* serve_client(void* v) {
       perror("read");
       pthread_exit(0);
     }
+    fclose(sfd);
   }
-
   freeaddrinfo(host);
   free(req);
-
-  printf("Connection closed on fdesc %d\n", sock);
-
+  printf("\e[1;34mConnection closed on fdesc %d\n\e[0m", sock);
+  close(sock);
+  close(sock2);
   fclose(myclient);
   fclose(myclient_wr);
   pthread_exit(0);
 }
 
 int main(int argc, char* argv[]) {
+
+  signal(SIGPIPE, broken_pipe_handler);
+  siginterrupt(SIGINT, 1);
 
   int err;
   struct addrinfo* host;
@@ -170,7 +193,7 @@ int main(int argc, char* argv[]) {
 
   freeaddrinfo(host);
 
-  printf("Waiting for connections on port %s\n", argv[1]);
+  printf("\e[1;34mWaiting for connections on port %s\n\e[0m", argv[1]);
 
   int* new_sock;
   pthread_t new_thread;
@@ -182,7 +205,7 @@ int main(int argc, char* argv[]) {
       fail("accept");
     }
 
-    printf("Accepted new connection on fdesc %d\n", *new_sock);
+    printf("\e[1;34mAccepted new connection on fdesc %d\n\e[0m", *new_sock);
 
     pthread_create(&new_thread, NULL, serve_client, new_sock);
     pthread_detach(new_thread);

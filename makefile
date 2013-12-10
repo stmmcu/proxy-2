@@ -1,2 +1,2 @@
 proxy: proxy.c
-	$(CXX) $(CXXFLAGS) proxy.c -o proxy -lpthread -g
+	$(CXX) $(CXXFLAGS) proxy.c -o proxy -lpthread
