@@ -18,6 +18,5 @@
 *.app
 
 *~
+*#
 proxy
-client
-server
