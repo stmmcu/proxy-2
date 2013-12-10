@@ -18,8 +18,9 @@
 #include <string.h>
 #include <signal.h>
 
-#define BUFSIZE 4096
+#define BUFSIZE 10240
 #define FOURZEROFOUR "HTTP/1.1 404 Not Found\nContent-Length: 219\nContent-Type: text/html\n\n<html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><img src='http://www.climateaccess.org/sites/default/files/Obi%20wan.jpeg'></img><p>These aren't the bytes you're looking for.</p></body></html>\0"
+#define FOURZEROZERO "HTTP/1.1 400 Bad Request\nContent-Length: 230\nContent-Type: text/html\n\n<html><head><title>400 Bad Request</title></head><body><h1>400 Bad Request</h1><img src='http://www.geeksofdoom.com/GoD/img/2007/05/2007-05-25-choke_lg.jpg'></img><p>If this is an HTTP request, where is the host?</p></body></html>\0"
 
 // handle broken pipes
 void broken_pipe_handler(int signum) {}  // this function intentionally left blank
@@ -44,7 +45,7 @@ char* parse_host(char* buf, char** saveptr) {
 
 // clean up before terminating thread
 void close_connections(struct addrinfo* host, int sock, FILE* f) {
-  freeaddrinfo(host);
+  if (host!=NULL) freeaddrinfo(host);
   fclose(f);
   printf("\e[1;34mConnection closed on fdesc %d\n\e[0m", sock);
   close(sock);
@@ -71,10 +72,14 @@ void* serve_client(void* v) {
 
   // find host and port
   char* svptr;
-  char req_cpy[BUFSIZE];
+  char  req_cpy[BUFSIZE];
   strcpy(req_cpy, req);
   char* host_name = parse_host(req_cpy, &svptr);
-  if (host_name==NULL) pthread_exit(0);
+  if (host_name==NULL) {
+    int n = write(sock_client, FOURZEROZERO, strlen(FOURZEROZERO));
+    if (n<0) fail_thread("write");
+    close_connections(NULL, sock_client, client_r);
+  }
 
   // dns stuff
   int err;
@@ -109,11 +114,11 @@ void* serve_client(void* v) {
     fputs(req, server_w);
     
     // get response
-    int n = read(sock_server, buf, sizeof(buf));
+    int n = read(sock_server, buf, BUFSIZE);
     while (n>0) {
       n = write(sock_client, buf, n);
       if (n<0) fail_thread("write");
-      n = read(sock_server, buf, sizeof(buf));
+      n = read(sock_server, buf, BUFSIZE);
     }
     if (n<0) fail_thread("read");
     fclose(server_w);
@@ -159,7 +164,7 @@ int main(int argc, char* argv[]) {
     new_sock  = (int*) malloc(sizeof(int));
     *new_sock = accept(serv_sock, NULL, NULL);
     if (*new_sock < 0) fail("accept");
-    printf("\e[1;34Accepted new connection on fdesc %d\n\e[0m", *new_sock);
+    printf("\e[1;34mAccepted new connection on fdesc %d\n\e[0m", *new_sock);
     pthread_create(&new_thread, NULL, serve_client, new_sock);
     pthread_detach(new_thread);
   }
